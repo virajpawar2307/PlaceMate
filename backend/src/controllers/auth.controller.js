@@ -5,6 +5,15 @@ const { comparePassword, createAccessToken, hashPassword } = require('../service
 const ApiError = require('../utils/ApiError')
 const ApiResponse = require('../utils/ApiResponse')
 
+function getCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: env.jwtCookieSameSite,
+    secure: env.jwtCookieSecure,
+    maxAge: 24 * 60 * 60 * 1000,
+  }
+}
+
 function toPublicUser(user) {
   return {
     id: user._id,
@@ -126,12 +135,7 @@ async function login(req, res) {
     role: user.role,
   })
 
-  res.cookie(env.jwtCookieName, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: env.nodeEnv === 'production',
-    maxAge: 24 * 60 * 60 * 1000,
-  })
+  res.cookie(env.jwtCookieName, token, getCookieOptions())
 
   return res.status(200).json(
     new ApiResponse(200, 'Login successful', {
@@ -142,7 +146,12 @@ async function login(req, res) {
 }
 
 async function logout(req, res) {
-  res.clearCookie(env.jwtCookieName)
+  const cookieOptions = getCookieOptions()
+  res.clearCookie(env.jwtCookieName, {
+    httpOnly: cookieOptions.httpOnly,
+    sameSite: cookieOptions.sameSite,
+    secure: cookieOptions.secure,
+  })
   return res.status(200).json(new ApiResponse(200, 'Logout successful'))
 }
 

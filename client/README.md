@@ -1,16 +1,40 @@
-# React + Vite
+# PlaceMate Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend for PlaceMate.
 
-Currently, two official plugins are available:
+## Local Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Install dependencies:
 
-## React Compiler
+```bash
+npm install
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+2. Start dev server:
 
-## Expanding the ESLint configuration
+```bash
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+By default, API calls use `/api` and Vite proxies them to `http://localhost:5000`.
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and set:
+
+- `VITE_API_BASE_URL`: backend API base URL ending with `/api`
+
+Examples:
+
+- Local with Vite proxy: `VITE_API_BASE_URL=/api`
+- Production: `VITE_API_BASE_URL=https://your-backend-domain.com/api`
+
+## Deployment Sequence
+
+1. Deploy backend first and verify `GET /api/health` works.
+2. Set frontend `VITE_API_BASE_URL` to deployed backend URL + `/api`.
+3. Build and deploy frontend:
+
+```bash
+npm run build
+```
