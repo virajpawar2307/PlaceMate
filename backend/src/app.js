@@ -11,6 +11,7 @@ const env = require('./config/env')
 const errorHandler = require('./middlewares/errorHandler')
 const notFound = require('./middlewares/notFound')
 const routes = require('./routes')
+const ApiResponse = require('./utils/ApiResponse')
 
 const app = express()
 
@@ -46,6 +47,19 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }))
 app.use(cookieParser())
 app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'))
 app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')))
+
+app.get('/', (req, res) => {
+  res.status(200).json(
+    new ApiResponse(200, 'PlaceMate backend is running', {
+      health: '/api/health',
+      apiBase: '/api/v1',
+    }),
+  )
+})
+
+app.get('/health', (req, res) => {
+  res.redirect(302, '/api/health')
+})
 
 app.use('/api', routes)
 
