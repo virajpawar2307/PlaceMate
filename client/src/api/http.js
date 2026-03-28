@@ -1,7 +1,11 @@
 import axios from 'axios'
 
+const defaultApiBaseUrl = import.meta.env.DEV
+  ? '/api'
+  : 'https://placemate-26ej.onrender.com/api'
+
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl,
   withCredentials: true,
 })
 
