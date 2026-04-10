@@ -17,6 +17,17 @@ const app = express()
 
 app.set('trust proxy', 1)
 
+// Lightweight liveness endpoint for external cron pings.
+// Kept before global middleware so ping traffic is isolated from API stack.
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: 'placemate-backend',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  })
+})
+
 const allowedOrigins = new Set(env.clientUrls)
 
 app.use(helmet())
@@ -51,14 +62,11 @@ app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')))
 app.get('/', (req, res) => {
   res.status(200).json(
     new ApiResponse(200, 'PlaceMate backend is running', {
-      health: '/api/health',
+      health: '/health',
+      apiHealth: '/api/health',
       apiBase: '/api/v1',
     }),
   )
-})
-
-app.get('/health', (req, res) => {
-  res.redirect(302, '/api/health')
 })
 
 app.use('/api', routes)

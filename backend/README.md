@@ -35,9 +35,11 @@ Default local URL: `http://localhost:5000`
 3. For cross-site cookie usage, use:
 	- `JWT_COOKIE_SAMESITE=none`
 	- `JWT_COOKIE_SECURE=true`
-4. Verify health endpoint after deploy: `GET /api/health`
+4. Verify liveness endpoint after deploy: `GET /health`
+5. Optional deeper API check: `GET /api/health`
 
 ## API Routes
 
-- Health: `/api/health`
+- Cron liveness (recommended for uptime ping): `/health`
+- API health response: `/api/health`
 - Versioned API: `/api/v1`
