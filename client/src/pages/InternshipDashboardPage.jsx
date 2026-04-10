@@ -17,6 +17,11 @@ function InternshipDashboardPage() {
       })
       setInternshipRecords(response.data?.data || [])
     } catch (error) {
+      if (error?.response?.status === 404) {
+        setInternshipRecords([])
+        return
+      }
+
       toast.error(error?.response?.data?.message || 'Unable to fetch internship records.')
     } finally {
       if (showLoader) {

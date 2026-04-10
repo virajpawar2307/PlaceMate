@@ -34,9 +34,14 @@ function AdminDashboardPage() {
 
   useEffect(() => {
     void refreshPlacements()
-    void refreshInternships()
     void refreshRequests()
   }, [])
+
+  useEffect(() => {
+    if (activeTab === 'internships') {
+      void refreshInternships()
+    }
+  }, [activeTab])
 
   const resetPlacementForm = () => {
     setPlacementForm(initialPlacementForm)
@@ -62,6 +67,11 @@ function AdminDashboardPage() {
       const response = await http.get('/v1/internships')
       setInternships(response.data?.data || [])
     } catch (error) {
+      if (error?.response?.status === 404) {
+        setInternships([])
+        return
+      }
+
       toast.error(error?.response?.data?.message || 'Unable to fetch internship records.')
     }
   }
