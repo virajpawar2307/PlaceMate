@@ -47,6 +47,13 @@ function Navbar() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [itemCounts, setItemCounts] = useState({
+    discussion: 0,
+    faq: 0,
+    resumes: 0,
+    placements: 0,
+    internships: 0,
+  })
   const isAuthenticated = sessionStorage.getItem('pmAuth') === 'true'
   const role = sessionStorage.getItem('pmRole') || 'student'
   const isStudent = isAuthenticated && role === 'student'
@@ -87,6 +94,38 @@ function Navbar() {
     }
 
     let isMounted = true
+
+    const fetchItemCounts = async (silent = true) => {
+      const counts = { ...itemCounts }
+
+      // Fetch all counts in parallel
+      try {
+        const [discussionRes, faqRes, resumesRes, placementsRes, internshipsRes] = await Promise.all([
+          http.get('/v1/discussion', { headers: { 'Cache-Control': 'no-cache' } }).catch(() => ({ data: { data: [] } })),
+          http.get('/v1/faq', { headers: { 'Cache-Control': 'no-cache' } }).catch(() => ({ data: { data: [] } })),
+          http.get('/v1/resumes', { headers: { 'Cache-Control': 'no-cache' } }).catch(() => ({ data: { data: [] } })),
+          http.get('/v1/placements', { headers: { 'Cache-Control': 'no-cache' } }).catch(() => ({ data: { data: [] } })),
+          http.get('/v1/internships', { headers: { 'Cache-Control': 'no-cache' } }).catch((error) => {
+            if (error?.response?.status === 404) return { data: { data: [] } }
+            throw error
+          }),
+        ])
+
+        counts.discussion = Array.isArray(discussionRes.data?.data) ? discussionRes.data.data.length : 0
+        counts.faq = Array.isArray(faqRes.data?.data) ? faqRes.data.data.length : 0
+        counts.resumes = Array.isArray(resumesRes.data?.data) ? resumesRes.data.data.length : 0
+        counts.placements = Array.isArray(placementsRes.data?.data) ? placementsRes.data.data.length : 0
+        counts.internships = Array.isArray(internshipsRes.data?.data) ? internshipsRes.data.data.length : 0
+
+        if (isMounted) {
+          setItemCounts(counts)
+        }
+      } catch (error) {
+        if (!silent) {
+          toast.error('Unable to load items count.')
+        }
+      }
+    }
 
     const pollNotifications = async (silent = true) => {
       const previousState = loadNotificationState()
@@ -144,13 +183,16 @@ function Navbar() {
       toast.success(`${newNotifications.length} new update notification(s).`)
     }
 
+    void fetchItemCounts(true)
     void pollNotifications(true)
 
     const intervalId = window.setInterval(() => {
+      void fetchItemCounts(true)
       void pollNotifications(true)
-    }, 20000)
+    }, 12000)
 
     const handleFocus = () => {
+      void fetchItemCounts(true)
       void pollNotifications(true)
     }
 
@@ -171,6 +213,15 @@ function Navbar() {
       }
       return next
     })
+  }
+
+  const renderNavBadge = (count) => {
+    if (!count || count === 0) return null
+    return (
+      <span className="ml-1.5 inline-block rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+        {count > 99 ? '99+' : count}
+      </span>
+    )
   }
 
   return (
@@ -324,6 +375,7 @@ function Navbar() {
               }
             >
               Discussion
+              {renderNavBadge(itemCounts.discussion)}
             </NavLink>
             <NavLink
               to="/faq"
@@ -336,6 +388,7 @@ function Navbar() {
               }
             >
               FAQ
+              {renderNavBadge(itemCounts.faq)}
             </NavLink>
             <NavLink
               to="/resumes"
@@ -348,6 +401,7 @@ function Navbar() {
               }
             >
               Resume Library
+              {renderNavBadge(itemCounts.resumes)}
             </NavLink>
             <NavLink
               to="/placements"
@@ -360,6 +414,7 @@ function Navbar() {
               }
             >
               Placements
+              {renderNavBadge(itemCounts.placements)}
             </NavLink>
             <NavLink
               to="/internships"
@@ -372,6 +427,7 @@ function Navbar() {
               }
             >
               Internships
+              {renderNavBadge(itemCounts.internships)}
             </NavLink>
             <NavLink
               to="/readiness"
