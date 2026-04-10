@@ -2,22 +2,22 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import http from '../api/http'
 
-function PlacementDashboardPage() {
-  const [placementRecords, setPlacementRecords] = useState([])
+function InternshipDashboardPage() {
+  const [internshipRecords, setInternshipRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchPlacements = async (showLoader = false) => {
+  const fetchInternships = async (showLoader = false) => {
     if (showLoader) {
       setIsLoading(true)
     }
 
     try {
-      const response = await http.get('/v1/placements', {
+      const response = await http.get('/v1/internships', {
         headers: { 'Cache-Control': 'no-cache' },
       })
-      setPlacementRecords(response.data?.data || [])
+      setInternshipRecords(response.data?.data || [])
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to fetch placement records.')
+      toast.error(error?.response?.data?.message || 'Unable to fetch internship records.')
     } finally {
       if (showLoader) {
         setIsLoading(false)
@@ -26,10 +26,10 @@ function PlacementDashboardPage() {
   }
 
   useEffect(() => {
-    void fetchPlacements(true)
+    void fetchInternships(true)
 
     const handleFocus = () => {
-      void fetchPlacements(false)
+      void fetchInternships(false)
     }
 
     window.addEventListener('focus', handleFocus)
@@ -42,8 +42,8 @@ function PlacementDashboardPage() {
   return (
     <section className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Placement Information Dashboard</h1>
-        <p className="text-sm text-slate-500">Admin-managed company details and selection insights.</p>
+        <h1 className="text-2xl font-bold text-slate-900">Internship Information Dashboard</h1>
+        <p className="text-sm text-slate-500">Admin-managed internship details and selection insights.</p>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -52,7 +52,7 @@ function PlacementDashboardPage() {
             <tr>
               <th className="px-4 py-3 font-semibold">Company</th>
               <th className="px-4 py-3 font-semibold">Role</th>
-              <th className="px-4 py-3 font-semibold">Package</th>
+              <th className="px-4 py-3 font-semibold">Package / Stipend</th>
               <th className="px-4 py-3 font-semibold">Eligibility</th>
               <th className="px-4 py-3 font-semibold">Process</th>
             </tr>
@@ -61,17 +61,17 @@ function PlacementDashboardPage() {
             {isLoading ? (
               <tr className="border-t border-slate-200">
                 <td className="px-4 py-3 text-slate-500" colSpan={5}>
-                  Loading placement records...
+                  Loading internship records...
                 </td>
               </tr>
-            ) : placementRecords.length === 0 ? (
+            ) : internshipRecords.length === 0 ? (
               <tr className="border-t border-slate-200">
                 <td className="px-4 py-3 text-slate-500" colSpan={5}>
-                  No placement records available.
+                  No internship records available.
                 </td>
               </tr>
             ) : (
-              placementRecords.map((record) => (
+              internshipRecords.map((record) => (
                 <tr key={record._id || record.id} className="border-t border-slate-200">
                   <td className="px-4 py-3">{record.company}</td>
                   <td className="px-4 py-3">{record.role}</td>
@@ -84,9 +84,8 @@ function PlacementDashboardPage() {
           </tbody>
         </table>
       </div>
-
     </section>
   )
 }
 
-export default PlacementDashboardPage
+export default InternshipDashboardPage

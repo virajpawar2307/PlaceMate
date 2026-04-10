@@ -43,3 +43,5 @@ Default local URL: `http://localhost:5000`
 - Cron liveness (recommended for uptime ping): `/health`
 - API health response: `/api/health`
 - Versioned API: `/api/v1`
+- Placement records: `/api/v1/placements`
+- Internship records: `/api/v1/internships`

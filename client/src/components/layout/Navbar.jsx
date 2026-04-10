@@ -182,6 +182,18 @@ function Navbar() {
               Placements
             </NavLink>
             <NavLink
+              to="/internships"
+              className={({ isActive }) =>
+                `whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${
+                  isActive
+                    ? 'border-cyan-600 bg-cyan-50 text-cyan-700'
+                    : 'border-slate-300 text-slate-700'
+                }`
+              }
+            >
+              Internships
+            </NavLink>
+            <NavLink
               to="/readiness"
               className={({ isActive }) =>
                 `whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${

@@ -3,6 +3,7 @@ import AppLayout from './components/layout/AppLayout'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import DiscussionPage from './pages/DiscussionPage'
 import FaqPage from './pages/FaqPage'
+import InternshipDashboardPage from './pages/InternshipDashboardPage'
 import LoginPage from './pages/LoginPage'
 import PlacementDashboardPage from './pages/PlacementDashboardPage'
 import PlacementReadinessPage from './pages/PlacementReadinessPage'
@@ -90,6 +91,14 @@ function App() {
           element={
             <ProtectedRoute allowedRole="student">
               <PlacementDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/internships"
+          element={
+            <ProtectedRoute allowedRole="student">
+              <InternshipDashboardPage />
             </ProtectedRoute>
           }
         />
