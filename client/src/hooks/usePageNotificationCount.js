@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import http from '../api/http'
 
+// Use same storage key as Navbar for consistency
+const NOTIFICATION_STATE_KEY = 'pmStudentNotificationState'
+
 // Helper to get record timestamp
 function getRecordTimestamp(record) {
   const rawValue = record?.updatedAt || record?.createdAt
@@ -11,7 +14,7 @@ function getRecordTimestamp(record) {
 // Load notification state from session storage
 function loadNotificationState() {
   try {
-    const raw = sessionStorage.getItem('pmPageNotificationState')
+    const raw = sessionStorage.getItem(NOTIFICATION_STATE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     return parsed && typeof parsed === 'object' ? parsed : {}
   } catch {
@@ -21,7 +24,7 @@ function loadNotificationState() {
 
 // Save notification state to session storage
 function saveNotificationState(nextState) {
-  sessionStorage.setItem('pmPageNotificationState', JSON.stringify(nextState))
+  sessionStorage.setItem(NOTIFICATION_STATE_KEY, JSON.stringify(nextState))
 }
 
 export function usePageNotificationCount(endpoint, options = {}) {
@@ -51,7 +54,9 @@ export function usePageNotificationCount(endpoint, options = {}) {
         const previousTimestamp = Number(previousState[endpoint] || 0)
 
         let newCount = 0
-        if (previousTimestamp > 0) {
+
+        // Calculate new items
+        if (previousTimestamp > 0 && data.length > 0) {
           // Count only items newer than last known timestamp
           newCount = data.filter((record) => getRecordTimestamp(record) > previousTimestamp).length
         }
@@ -62,11 +67,12 @@ export function usePageNotificationCount(endpoint, options = {}) {
           0,
         )
 
+        // Always save state for future comparisons
+        const nextState = { ...previousState }
         if (latestTimestamp > 0) {
-          const nextState = { ...previousState }
           nextState[endpoint] = latestTimestamp
-          saveNotificationState(nextState)
         }
+        saveNotificationState(nextState)
 
         if (isMounted) {
           setCount(newCount)

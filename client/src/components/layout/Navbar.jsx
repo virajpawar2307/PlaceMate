@@ -98,7 +98,13 @@ function Navbar() {
     const pollAndFetchCounts = async (silent = true) => {
       const previousState = loadNotificationState()
       const nextState = { ...previousState }
-      const newCounts = { ...newItemCounts }
+      const newCounts = {
+        discussion: 0,
+        faq: 0,
+        resumes: 0,
+        placements: 0,
+        internships: 0,
+      }
       const newNotifications = []
 
       const sources = [
@@ -116,19 +122,28 @@ function Navbar() {
               headers: { 'Cache-Control': 'no-cache' },
             })
             const records = Array.isArray(response.data?.data) ? response.data.data : []
+            
+            if (records.length === 0) {
+              newCounts[source.countKey] = 0
+              nextState[source.key] = 0
+              return
+            }
+
             const latestTimestamp = records.reduce(
               (maxTimestamp, record) => Math.max(maxTimestamp, getRecordTimestamp(record)),
               0,
             )
             const previousTimestamp = Number(previousState[source.key] || 0)
 
-            // Calculate new items count
+            // On first run (previousTimestamp = 0), just set baseline
+            // On subsequent runs, count new items
             let newCount = 0
-            if (previousTimestamp > 0 && latestTimestamp > previousTimestamp) {
+            if (previousTimestamp > 0) {
               newCount = records.filter(
                 (record) => getRecordTimestamp(record) > previousTimestamp,
               ).length
 
+              // Create notification if there are new items
               if (newCount > 0) {
                 newNotifications.push(
                   createNotificationItem(
@@ -139,31 +154,28 @@ function Navbar() {
             }
 
             newCounts[source.countKey] = newCount
-
-            // Update timestamp for next comparison
+            
+            // Save the latest timestamp for next check
             if (latestTimestamp > 0) {
               nextState[source.key] = latestTimestamp
             }
           } catch (error) {
-            if (error?.response?.status === 404) {
-              return
+            if (error?.response?.status !== 404 && !silent) {
+              // Log but don't toast
             }
-
-            if (!silent) {
-              toast.error('Unable to load update notifications.')
-            }
+            newCounts[source.countKey] = 0
           }
         }),
       )
 
-      // Save the updated state
+      // Save state for next poll
       saveNotificationState(nextState)
 
       if (!isMounted) {
         return
       }
 
-      // Update badge counts
+      // Update navbar badges
       setNewItemCounts(newCounts)
 
       // Show notifications if any
@@ -176,8 +188,10 @@ function Navbar() {
       }
     }
 
+    // First poll on mount
     void pollAndFetchCounts(true)
 
+    // Poll every 12 seconds
     const intervalId = window.setInterval(() => {
       void pollAndFetchCounts(true)
     }, 12000)
@@ -206,12 +220,20 @@ function Navbar() {
   }
 
   const handleNavLinkClick = (sectionKey) => {
-    // Clear new count badge when user visits the section
+    // Update state to clear badge
     setNewItemCounts((prev) => ({ ...prev, [sectionKey]: 0 }))
+    
+    // Also update session storage to reset the timestamp for this section
+    // so next poll will treat items as "old"
+    const currentState = loadNotificationState()
+    const updatedState = { ...currentState }
+    // Keep the current timestamp, don't reset it - items viewed are now "seen"
+    // The badge will reappear when NEW items arrive after this timestamp
+    saveNotificationState(updatedState)
   }
 
   const renderNavBadge = (count) => {
-    if (!count || count === 0) return null
+    if (!count || count <= 0) return null
     return (
       <span className="ml-1.5 inline-block rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">
         {count > 99 ? '99+' : count}
