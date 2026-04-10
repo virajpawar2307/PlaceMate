@@ -1,46 +1,30 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import http from '../api/http'
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+import { usePageNotificationCount } from '../hooks/usePageNotificationCount'
 
 function InternshipDashboardPage() {
   const [internshipRecords, setInternshipRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const { count: internshipCount } = usePageNotificationCount('/v1/internships', { 
+    interval: 15000,
+  })
 
   const fetchInternships = async ({ showLoader = false, silent = false } = {}) => {
     if (showLoader) {
       setIsLoading(true)
     }
 
-    let lastError = null
-
     try {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        try {
-          const response = await http.get('/v1/internships', {
-            headers: { 'Cache-Control': 'no-cache' },
-          })
-          setInternshipRecords(response.data?.data || [])
-          lastError = null
-          break
-        } catch (error) {
-          lastError = error
-
-          if (error?.response?.status === 404) {
-            setInternshipRecords([])
-            lastError = null
-            break
-          }
-
-          if (attempt === 0) {
-            await sleep(1000)
-          }
-        }
-      }
-
-      if (lastError && !silent) {
-        toast.error(lastError?.response?.data?.message || 'Unable to fetch internship records.')
+      const response = await http.get('/v1/internships', {
+        headers: { 'Cache-Control': 'no-cache' },
+      })
+      setInternshipRecords(response.data?.data || [])
+    } catch (error) {
+      if (error?.response?.status === 404) {
+        setInternshipRecords([])
+      } else if (!silent) {
+        toast.error(error?.response?.data?.message || 'Unable to fetch internship records.')
       }
     } finally {
       if (showLoader) {
@@ -71,7 +55,14 @@ function InternshipDashboardPage() {
   return (
     <section className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Internship Information Dashboard</h1>
+        <h1 className="text-2xl font-bold text-slate-900">
+          Internship Information Dashboard
+          {internshipCount > 0 && (
+            <span className="ml-2 inline-block rounded-full bg-indigo-100 px-2.5 py-0.5 text-lg font-semibold text-indigo-700">
+              {internshipCount}
+            </span>
+          )}
+        </h1>
         <p className="text-sm text-slate-500">Admin-managed internship details and selection insights.</p>
       </div>
 

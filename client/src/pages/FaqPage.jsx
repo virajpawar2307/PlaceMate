@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSearchParams } from 'react-router-dom'
 import http from '../api/http'
+import { getApiErrorMessage, requestWithRetry } from '../utils/apiFetch'
+import { usePageNotificationCount } from '../hooks/usePageNotificationCount'
 
 function FaqPage() {
   const [question, setQuestion] = useState('')
@@ -14,6 +16,10 @@ function FaqPage() {
   const [editingAnswer, setEditingAnswer] = useState('')
   const [searchParams] = useSearchParams()
   const mineOnly = String(searchParams.get('mine') || '') === 'true'
+  const { count: faqCount } = usePageNotificationCount('/v1/faq', { 
+    interval: 12000,
+    searchParams: mineOnly ? { mine: 'true' } : undefined,
+  })
 
   const currentUser = useMemo(() => {
     const fallbackUser = {
@@ -32,17 +38,39 @@ function FaqPage() {
   }, [])
 
   useEffect(() => {
-    void refreshFaqs()
+    void refreshFaqs({ showError: true })
+
+    const intervalId = window.setInterval(() => {
+      void refreshFaqs({ silent: true })
+    }, 12000)
+
+    const handleFocus = () => {
+      void refreshFaqs({ silent: true })
+    }
+
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [mineOnly])
 
-  const refreshFaqs = async () => {
+  const refreshFaqs = async ({ silent = false, showError = false } = {}) => {
     try {
-      const response = await http.get('/v1/faq', {
-        params: mineOnly ? { mine: 'true' } : undefined,
-      })
+      const response = await requestWithRetry(
+        () =>
+          http.get('/v1/faq', {
+            params: mineOnly ? { mine: 'true' } : undefined,
+            headers: { 'Cache-Control': 'no-cache' },
+          }),
+        { retries: 0, delayMs: 500 },
+      )
       setFaqs(response.data?.data || [])
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to fetch FAQ entries.')
+      if (showError) {
+        toast.error(getApiErrorMessage(error, 'Unable to fetch FAQ entries.'))
+      }
     }
   }
 
@@ -70,17 +98,22 @@ function FaqPage() {
 
     setIsSubmitting(true)
     try {
-      await http.post('/v1/faq', {
+      const response = await http.post('/v1/faq', {
         question: trimmedQuestion,
         answer: trimmedAnswer,
       })
-      await refreshFaqs()
+      const createdFaq = response.data?.data
+      if (createdFaq) {
+        setFaqs((previous) => [createdFaq, ...previous])
+      } else {
+        await refreshFaqs({ silent: true })
+      }
       setQuestion('')
       setAnswer('')
       setShowComposer(false)
       toast.success('FAQ posted and visible to all users.')
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to post FAQ entry.')
+      toast.error(getApiErrorMessage(error, 'Unable to post FAQ entry.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -96,34 +129,48 @@ function FaqPage() {
     }
 
     try {
-      await http.patch(`/v1/faq/${faqId}`, {
+      const response = await http.patch(`/v1/faq/${faqId}`, {
         question: trimmedQuestion,
         answer: trimmedAnswer,
       })
+      const updatedFaq = response.data?.data
+      setFaqs((previous) =>
+        previous.map((faq) =>
+          String(faq._id || faq.id) === String(faqId)
+            ? { ...faq, ...(updatedFaq || { question: trimmedQuestion, answer: trimmedAnswer }) }
+            : faq,
+        ),
+      )
       toast.success('FAQ updated.')
       setEditingFaqId(null)
       setEditingQuestion('')
       setEditingAnswer('')
-      await refreshFaqs()
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to update FAQ entry.')
+      toast.error(getApiErrorMessage(error, 'Unable to update FAQ entry.'))
     }
   }
 
   const handleDelete = async (faqId) => {
     try {
       await http.delete(`/v1/faq/${faqId}`)
+      setFaqs((previous) => previous.filter((faq) => String(faq._id || faq.id) !== String(faqId)))
       toast.success('FAQ deleted.')
-      await refreshFaqs()
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to delete FAQ entry.')
+      toast.error(getApiErrorMessage(error, 'Unable to delete FAQ entry.'))
     }
   }
 
   return (
     <section className="space-y-6 animate-fade-up">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-slate-900">{mineOnly ? 'My FAQs' : 'FAQ and Knowledge Base'}</h1>
+        <h1 className="text-2xl font-bold text-slate-900">
+          {mineOnly ? 'My FAQs' : 'FAQ and Knowledge Base'}
+          {!mineOnly && faqCount > 0 && (
+            <span className="ml-2 inline-block rounded-full bg-purple-100 px-2.5 py-0.5 text-lg font-semibold text-purple-700">
+              {faqCount}
+            </span>
+          )}
+        </h1>
         <p className="text-sm text-slate-500 sm:text-base">
           {mineOnly
             ? 'Manage your own FAQ entries.'

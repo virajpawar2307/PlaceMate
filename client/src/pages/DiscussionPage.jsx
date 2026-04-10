@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSearchParams } from 'react-router-dom'
 import http from '../api/http'
+import { getApiErrorMessage, requestWithRetry } from '../utils/apiFetch'
+import { usePageNotificationCount } from '../hooks/usePageNotificationCount'
 
 function DiscussionPage() {
   const [message, setMessage] = useState('')
@@ -12,6 +14,10 @@ function DiscussionPage() {
   const [editingMessage, setEditingMessage] = useState('')
   const [searchParams] = useSearchParams()
   const mineOnly = String(searchParams.get('mine') || '') === 'true'
+  const { count: postCount } = usePageNotificationCount('/v1/discussion', { 
+    interval: 12000,
+    searchParams: mineOnly ? { mine: 'true' } : undefined,
+  })
 
   const currentUser = useMemo(() => {
     const fallbackUser = {
@@ -30,17 +36,39 @@ function DiscussionPage() {
   }, [])
 
   useEffect(() => {
-    void refreshPosts()
+    void refreshPosts({ showError: true })
+
+    const intervalId = window.setInterval(() => {
+      void refreshPosts({ silent: true })
+    }, 12000)
+
+    const handleFocus = () => {
+      void refreshPosts({ silent: true })
+    }
+
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [mineOnly])
 
-  const refreshPosts = async () => {
+  const refreshPosts = async ({ silent = false, showError = false } = {}) => {
     try {
-      const response = await http.get('/v1/discussion', {
-        params: mineOnly ? { mine: 'true' } : undefined,
-      })
+      const response = await requestWithRetry(
+        () =>
+          http.get('/v1/discussion', {
+            params: mineOnly ? { mine: 'true' } : undefined,
+            headers: { 'Cache-Control': 'no-cache' },
+          }),
+        { retries: 0, delayMs: 500 },
+      )
       setPosts(response.data?.data || [])
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to fetch discussion posts.')
+      if (showError) {
+        toast.error(getApiErrorMessage(error, 'Unable to fetch discussion posts.'))
+      }
     }
   }
 
@@ -66,13 +94,18 @@ function DiscussionPage() {
 
     setIsSubmitting(true)
     try {
-      await http.post('/v1/discussion', { message: trimmedMessage })
-      await refreshPosts()
+      const response = await http.post('/v1/discussion', { message: trimmedMessage })
+      const createdPost = response.data?.data
+      if (createdPost) {
+        setPosts((previous) => [createdPost, ...previous])
+      } else {
+        await refreshPosts({ silent: true })
+      }
       setMessage('')
       setShowComposer(false)
       toast.success('Discussion post published successfully. It will be live for 72 hours.')
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to publish discussion post.')
+      toast.error(getApiErrorMessage(error, 'Unable to publish discussion post.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -81,10 +114,10 @@ function DiscussionPage() {
   const handleDelete = async (postId) => {
     try {
       await http.delete(`/v1/discussion/${postId}`)
+      setPosts((previous) => previous.filter((post) => String(post._id || post.id) !== String(postId)))
       toast.success('Discussion post deleted.')
-      await refreshPosts()
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to delete discussion post.')
+      toast.error(getApiErrorMessage(error, 'Unable to delete discussion post.'))
     }
   }
 
@@ -96,20 +129,34 @@ function DiscussionPage() {
     }
 
     try {
-      await http.patch(`/v1/discussion/${postId}`, { message: trimmedMessage })
+      const response = await http.patch(`/v1/discussion/${postId}`, { message: trimmedMessage })
+      const updatedPost = response.data?.data
+      setPosts((previous) =>
+        previous.map((post) =>
+          String(post._id || post.id) === String(postId)
+            ? { ...post, ...(updatedPost || { message: trimmedMessage }) }
+            : post,
+        ),
+      )
       toast.success('Discussion post updated.')
       setEditingPostId(null)
       setEditingMessage('')
-      await refreshPosts()
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to update discussion post.')
+      toast.error(getApiErrorMessage(error, 'Unable to update discussion post.'))
     }
   }
 
   return (
     <section className="space-y-6 animate-fade-up">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-slate-900">{mineOnly ? 'My Discussions' : 'Open Discussion Forum'}</h1>
+        <h1 className="text-2xl font-bold text-slate-900">
+          {mineOnly ? 'My Discussions' : 'Open Discussion Forum'}
+          {!mineOnly && postCount > 0 && (
+            <span className="ml-2 inline-block rounded-full bg-cyan-100 px-2.5 py-0.5 text-lg font-semibold text-cyan-700">
+              {postCount}
+            </span>
+          )}
+        </h1>
         <p className="text-sm text-slate-500 sm:text-base">
           {mineOnly
             ? 'Manage your own discussion posts.'

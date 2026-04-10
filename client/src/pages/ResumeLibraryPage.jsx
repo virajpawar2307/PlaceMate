@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSearchParams } from 'react-router-dom'
 import http from '../api/http'
+import { usePageNotificationCount } from '../hooks/usePageNotificationCount'
 
 function ResumeLibraryPage() {
   const [showUploadForm, setShowUploadForm] = useState(false)
@@ -17,6 +18,10 @@ function ResumeLibraryPage() {
   const [resumeFile, setResumeFile] = useState(null)
   const [searchParams] = useSearchParams()
   const mineOnly = String(searchParams.get('mine') || '') === 'true'
+  const { count: resumeCount } = usePageNotificationCount('/v1/resumes', { 
+    interval: 12000,
+    searchParams: mineOnly ? { mine: 'true' } : undefined,
+  })
 
   useEffect(() => {
     void refreshResumes()
@@ -26,10 +31,11 @@ function ResumeLibraryPage() {
     try {
       const response = await http.get('/v1/resumes', {
         params: mineOnly ? { mine: 'true' } : undefined,
+        headers: { 'Cache-Control': 'no-cache' },
       })
       setUploadedResumes(response.data?.data || [])
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to fetch resume library.')
+      // Silently handle error to avoid duplicate toast messages
     }
   }
 
@@ -126,7 +132,14 @@ function ResumeLibraryPage() {
     <section className="space-y-6 animate-fade-up">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-        <h1 className="text-2xl font-bold text-slate-900">{mineOnly ? 'My Resume Library' : 'Resume Reference Library'}</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {mineOnly ? 'My Resume Library' : 'Resume Reference Library'}
+            {!mineOnly && resumeCount > 0 && (
+              <span className="ml-2 inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-lg font-semibold text-amber-700">
+                {resumeCount}
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-slate-500 sm:text-base">
             {mineOnly
               ? 'Manage resumes uploaded by you.'

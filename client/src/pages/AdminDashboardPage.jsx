@@ -41,7 +41,7 @@ function AdminDashboardPage() {
 
     const intervalId = window.setInterval(() => {
       void refreshRequests({ silent: true })
-    }, 20000)
+    }, 15000)
 
     return () => {
       window.clearInterval(intervalId)
@@ -66,7 +66,9 @@ function AdminDashboardPage() {
 
   const refreshPlacements = async () => {
     try {
-      const response = await http.get('/v1/placements')
+      const response = await http.get('/v1/placements', {
+        headers: { 'Cache-Control': 'no-cache' },
+      })
       setPlacements(response.data?.data || [])
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Unable to fetch placement records.')
@@ -75,7 +77,9 @@ function AdminDashboardPage() {
 
   const refreshInternships = async () => {
     try {
-      const response = await http.get('/v1/internships')
+      const response = await http.get('/v1/internships', {
+        headers: { 'Cache-Control': 'no-cache' },
+      })
       setInternships(response.data?.data || [])
     } catch (error) {
       if (error?.response?.status === 404) {
@@ -89,7 +93,9 @@ function AdminDashboardPage() {
 
   const refreshRequests = async ({ silent = false } = {}) => {
     try {
-      const response = await http.get('/v1/admin/registration-requests')
+      const response = await http.get('/v1/admin/registration-requests', {
+        headers: { 'Cache-Control': 'no-cache' },
+      })
       const requestList = response.data?.data || []
       setRequests(requestList)
 
@@ -117,6 +123,7 @@ function AdminDashboardPage() {
     try {
       const response = await http.get('/v1/admin/users', {
         params: searchValue.trim() ? { search: searchValue.trim() } : undefined,
+        headers: { 'Cache-Control': 'no-cache' },
       })
       setUsers(response.data?.data || [])
     } catch (error) {
