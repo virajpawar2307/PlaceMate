@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import http from '../api/http'
 
@@ -31,10 +31,21 @@ function AdminDashboardPage() {
   const [showInternshipForm, setShowInternshipForm] = useState(false)
   const [editingInternshipId, setEditingInternshipId] = useState(null)
   const [internshipForm, setInternshipForm] = useState(initialInternshipForm)
+  const previousPendingCountRef = useRef(null)
+
+  const pendingCount = requests.filter((request) => request.status === 'pending').length
 
   useEffect(() => {
     void refreshPlacements()
     void refreshRequests()
+
+    const intervalId = window.setInterval(() => {
+      void refreshRequests({ silent: true })
+    }, 20000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
   }, [])
 
   useEffect(() => {
@@ -76,12 +87,29 @@ function AdminDashboardPage() {
     }
   }
 
-  const refreshRequests = async () => {
+  const refreshRequests = async ({ silent = false } = {}) => {
     try {
       const response = await http.get('/v1/admin/registration-requests')
-      setRequests(response.data?.data || [])
+      const requestList = response.data?.data || []
+      setRequests(requestList)
+
+      const currentPendingCount = requestList.filter((request) => request.status === 'pending').length
+      const previousPendingCount = previousPendingCountRef.current
+
+      if (previousPendingCount === null) {
+        if (currentPendingCount > 0) {
+          toast(`You have ${currentPendingCount} pending approval request(s).`)
+        }
+      } else if (currentPendingCount > previousPendingCount) {
+        const newlyAdded = currentPendingCount - previousPendingCount
+        toast.success(`${newlyAdded} new pending approval request(s). Total pending: ${currentPendingCount}.`)
+      }
+
+      previousPendingCountRef.current = currentPendingCount
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to fetch registration requests.')
+      if (!silent) {
+        toast.error(error?.response?.data?.message || 'Unable to fetch registration requests.')
+      }
     }
   }
 
@@ -259,6 +287,15 @@ function AdminDashboardPage() {
         <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">TnP Admin Dashboard</h1>
         <p className="text-sm text-slate-500 sm:text-base">
           Manage placement, internship, and student registration records.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+        <p className="text-sm font-semibold text-amber-900">
+          Pending Approval Requests: {pendingCount}
+        </p>
+        <p className="text-xs text-amber-800">
+          Review pending student registration approvals from the Registration Requests tab.
         </p>
       </div>
 
