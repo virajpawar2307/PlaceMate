@@ -95,68 +95,22 @@ function Navbar() {
 
     let isMounted = true
 
-    const fetchNewItemCounts = async (silent = true) => {
-      const previousState = loadNotificationState()
-      const newCounts = { ...newItemCounts }
-
-      // Fetch and count new items for each section
-      try {
-        const sources = [
-          { key: 'discussion', path: '/v1/discussion', countKey: 'discussion' },
-          { key: 'faq', path: '/v1/faq', countKey: 'faq' },
-          { key: 'resumes', path: '/v1/resumes', countKey: 'resumes' },
-          { key: 'placements', path: '/v1/placements', countKey: 'placements' },
-          { key: 'internships', path: '/v1/internships', countKey: 'internships' },
-        ]
-
-        await Promise.all(
-          sources.map(async (source) => {
-            try {
-              const response = await http.get(source.path, {
-                headers: { 'Cache-Control': 'no-cache' },
-              })
-              const records = Array.isArray(response.data?.data) ? response.data.data : []
-              const latestTimestamp = records.reduce(
-                (maxTimestamp, record) => Math.max(maxTimestamp, getRecordTimestamp(record)),
-                0,
-              )
-              const previousTimestamp = Number(previousState[source.key] || 0)
-
-              // Count items that are new (newer than last known timestamp)
-              if (previousTimestamp > 0 && latestTimestamp > previousTimestamp) {
-                const newCount = records.filter(
-                  (record) => getRecordTimestamp(record) > previousTimestamp,
-                ).length
-                newCounts[source.countKey] = newCount > 0 ? newCount : 0
-              } else {
-                newCounts[source.countKey] = 0
-              }
-            } catch (error) {
-              if (error?.response?.status !== 404) {
-                if (!silent) {
-                  // Silently fail
-                }
-              }
-              newCounts[source.countKey] = 0
-            }
-          }),
-        )
-
-        if (isMounted) {
-          setNewItemCounts(newCounts)
-        }
-      } catch (error) {
-        // Silently fail
-      }
-    }
-
-    const pollNotifications = async (silent = true) => {
+    const pollAndFetchCounts = async (silent = true) => {
       const previousState = loadNotificationState()
       const nextState = { ...previousState }
+      const newCounts = { ...newItemCounts }
       const newNotifications = []
 
+      const sources = [
+        { key: 'discussion', label: 'discussion updates', path: '/v1/discussion', countKey: 'discussion' },
+        { key: 'faq', label: 'FAQ updates', path: '/v1/faq', countKey: 'faq' },
+        { key: 'resumes', label: 'resume library updates', path: '/v1/resumes', countKey: 'resumes' },
+        { key: 'placements', label: 'placement updates', path: '/v1/placements', countKey: 'placements' },
+        { key: 'internships', label: 'internship updates', path: '/v1/internships', countKey: 'internships' },
+      ]
+
       await Promise.all(
-        studentNotificationSources.map(async (source) => {
+        sources.map(async (source) => {
           try {
             const response = await http.get(source.path, {
               headers: { 'Cache-Control': 'no-cache' },
@@ -168,21 +122,28 @@ function Navbar() {
             )
             const previousTimestamp = Number(previousState[source.key] || 0)
 
+            // Calculate new items count
+            let newCount = 0
             if (previousTimestamp > 0 && latestTimestamp > previousTimestamp) {
-              const freshCount = records.filter(
+              newCount = records.filter(
                 (record) => getRecordTimestamp(record) > previousTimestamp,
               ).length
 
-              if (freshCount > 0) {
+              if (newCount > 0) {
                 newNotifications.push(
                   createNotificationItem(
-                    `${freshCount} new ${source.label} available`,
+                    `${newCount} new ${source.label} available`,
                   ),
                 )
               }
             }
 
-            nextState[source.key] = Math.max(previousTimestamp, latestTimestamp)
+            newCounts[source.countKey] = newCount
+
+            // Update timestamp for next comparison
+            if (latestTimestamp > 0) {
+              nextState[source.key] = latestTimestamp
+            }
           } catch (error) {
             if (error?.response?.status === 404) {
               return
@@ -195,28 +156,34 @@ function Navbar() {
         }),
       )
 
+      // Save the updated state
       saveNotificationState(nextState)
 
-      if (!isMounted || newNotifications.length === 0) {
+      if (!isMounted) {
         return
       }
 
-      setNotifications((previous) => [...newNotifications, ...previous].slice(0, 20))
-      setUnreadCount((previous) => previous + newNotifications.length)
-      toast.success(`${newNotifications.length} new update notification(s).`)
+      // Update badge counts
+      setNewItemCounts(newCounts)
+
+      // Show notifications if any
+      if (newNotifications.length > 0) {
+        setNotifications((previous) => [...newNotifications, ...previous].slice(0, 20))
+        setUnreadCount((previous) => previous + newNotifications.length)
+        if (!silent) {
+          toast.success(`${newNotifications.length} new update notification(s).`)
+        }
+      }
     }
 
-    void fetchNewItemCounts(true)
-    void pollNotifications(true)
+    void pollAndFetchCounts(true)
 
     const intervalId = window.setInterval(() => {
-      void fetchNewItemCounts(true)
-      void pollNotifications(true)
+      void pollAndFetchCounts(true)
     }, 12000)
 
     const handleFocus = () => {
-      void fetchNewItemCounts(true)
-      void pollNotifications(true)
+      void pollAndFetchCounts(true)
     }
 
     window.addEventListener('focus', handleFocus)
