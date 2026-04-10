@@ -2,27 +2,46 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import http from '../api/http'
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
 function InternshipDashboardPage() {
   const [internshipRecords, setInternshipRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchInternships = async (showLoader = false) => {
+  const fetchInternships = async ({ showLoader = false, silent = false } = {}) => {
     if (showLoader) {
       setIsLoading(true)
     }
 
+    let lastError = null
+
     try {
-      const response = await http.get('/v1/internships', {
-        headers: { 'Cache-Control': 'no-cache' },
-      })
-      setInternshipRecords(response.data?.data || [])
-    } catch (error) {
-      if (error?.response?.status === 404) {
-        setInternshipRecords([])
-        return
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const response = await http.get('/v1/internships', {
+            headers: { 'Cache-Control': 'no-cache' },
+          })
+          setInternshipRecords(response.data?.data || [])
+          lastError = null
+          break
+        } catch (error) {
+          lastError = error
+
+          if (error?.response?.status === 404) {
+            setInternshipRecords([])
+            lastError = null
+            break
+          }
+
+          if (attempt === 0) {
+            await sleep(1000)
+          }
+        }
       }
 
-      toast.error(error?.response?.data?.message || 'Unable to fetch internship records.')
+      if (lastError && !silent) {
+        toast.error(lastError?.response?.data?.message || 'Unable to fetch internship records.')
+      }
     } finally {
       if (showLoader) {
         setIsLoading(false)
@@ -31,16 +50,21 @@ function InternshipDashboardPage() {
   }
 
   useEffect(() => {
-    void fetchInternships(true)
+    void fetchInternships({ showLoader: true })
 
     const handleFocus = () => {
-      void fetchInternships(false)
+      void fetchInternships({ silent: true })
     }
+
+    const intervalId = window.setInterval(() => {
+      void fetchInternships({ silent: true })
+    }, 15000)
 
     window.addEventListener('focus', handleFocus)
 
     return () => {
       window.removeEventListener('focus', handleFocus)
+      window.clearInterval(intervalId)
     }
   }, [])
 

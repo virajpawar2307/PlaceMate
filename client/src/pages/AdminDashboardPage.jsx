@@ -117,14 +117,24 @@ function AdminDashboardPage() {
 
     try {
       if (editingPlacementId) {
-        await http.patch(`/v1/placements/${editingPlacementId}`, placementForm)
+        const response = await http.patch(`/v1/placements/${editingPlacementId}`, placementForm)
+        const updatedRecord = response.data?.data
+        setPlacements((previous) =>
+          previous.map((record) =>
+            String(record._id || record.id) === String(editingPlacementId)
+              ? { ...record, ...updatedRecord }
+              : record,
+          ),
+        )
         toast.success('Placement record updated.')
       } else {
-        await http.post('/v1/placements', placementForm)
+        const response = await http.post('/v1/placements', placementForm)
+        const createdRecord = response.data?.data
+        if (createdRecord) {
+          setPlacements((previous) => [createdRecord, ...previous])
+        }
         toast.success('Placement record added.')
       }
-
-      await refreshPlacements()
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Unable to save placement record.')
       return
@@ -149,8 +159,10 @@ function AdminDashboardPage() {
   const handlePlacementDelete = async (recordId) => {
     try {
       await http.delete(`/v1/placements/${recordId}`)
+      setPlacements((previous) =>
+        previous.filter((record) => String(record._id || record.id) !== String(recordId)),
+      )
       toast.success('Placement record deleted.')
-      await refreshPlacements()
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Unable to delete placement record.')
     }
@@ -167,14 +179,24 @@ function AdminDashboardPage() {
 
     try {
       if (editingInternshipId) {
-        await http.patch(`/v1/internships/${editingInternshipId}`, internshipForm)
+        const response = await http.patch(`/v1/internships/${editingInternshipId}`, internshipForm)
+        const updatedRecord = response.data?.data
+        setInternships((previous) =>
+          previous.map((record) =>
+            String(record._id || record.id) === String(editingInternshipId)
+              ? { ...record, ...updatedRecord }
+              : record,
+          ),
+        )
         toast.success('Internship record updated.')
       } else {
-        await http.post('/v1/internships', internshipForm)
+        const response = await http.post('/v1/internships', internshipForm)
+        const createdRecord = response.data?.data
+        if (createdRecord) {
+          setInternships((previous) => [createdRecord, ...previous])
+        }
         toast.success('Internship record added.')
       }
-
-      await refreshInternships()
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Unable to save internship record.')
       return
@@ -199,8 +221,10 @@ function AdminDashboardPage() {
   const handleInternshipDelete = async (recordId) => {
     try {
       await http.delete(`/v1/internships/${recordId}`)
+      setInternships((previous) =>
+        previous.filter((record) => String(record._id || record.id) !== String(recordId)),
+      )
       toast.success('Internship record deleted.')
-      await refreshInternships()
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Unable to delete internship record.')
     }

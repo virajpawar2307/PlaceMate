@@ -2,22 +2,40 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import http from '../api/http'
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
 function PlacementDashboardPage() {
   const [placementRecords, setPlacementRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchPlacements = async (showLoader = false) => {
+  const fetchPlacements = async ({ showLoader = false, silent = false } = {}) => {
     if (showLoader) {
       setIsLoading(true)
     }
 
+    let lastError = null
+
     try {
-      const response = await http.get('/v1/placements', {
-        headers: { 'Cache-Control': 'no-cache' },
-      })
-      setPlacementRecords(response.data?.data || [])
-    } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to fetch placement records.')
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const response = await http.get('/v1/placements', {
+            headers: { 'Cache-Control': 'no-cache' },
+          })
+          setPlacementRecords(response.data?.data || [])
+          lastError = null
+          break
+        } catch (error) {
+          lastError = error
+
+          if (attempt === 0) {
+            await sleep(1000)
+          }
+        }
+      }
+
+      if (lastError && !silent) {
+        toast.error(lastError?.response?.data?.message || 'Unable to fetch placement records.')
+      }
     } finally {
       if (showLoader) {
         setIsLoading(false)
@@ -26,16 +44,21 @@ function PlacementDashboardPage() {
   }
 
   useEffect(() => {
-    void fetchPlacements(true)
+    void fetchPlacements({ showLoader: true })
 
     const handleFocus = () => {
-      void fetchPlacements(false)
+      void fetchPlacements({ silent: true })
     }
+
+    const intervalId = window.setInterval(() => {
+      void fetchPlacements({ silent: true })
+    }, 15000)
 
     window.addEventListener('focus', handleFocus)
 
     return () => {
       window.removeEventListener('focus', handleFocus)
+      window.clearInterval(intervalId)
     }
   }, [])
 
