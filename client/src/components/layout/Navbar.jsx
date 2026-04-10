@@ -47,7 +47,7 @@ function Navbar() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [itemCounts, setItemCounts] = useState({
+  const [newItemCounts, setNewItemCounts] = useState({
     discussion: 0,
     faq: 0,
     resumes: 0,
@@ -95,35 +95,58 @@ function Navbar() {
 
     let isMounted = true
 
-    const fetchItemCounts = async (silent = true) => {
-      const counts = { ...itemCounts }
+    const fetchNewItemCounts = async (silent = true) => {
+      const previousState = loadNotificationState()
+      const newCounts = { ...newItemCounts }
 
-      // Fetch all counts in parallel
+      // Fetch and count new items for each section
       try {
-        const [discussionRes, faqRes, resumesRes, placementsRes, internshipsRes] = await Promise.all([
-          http.get('/v1/discussion', { headers: { 'Cache-Control': 'no-cache' } }).catch(() => ({ data: { data: [] } })),
-          http.get('/v1/faq', { headers: { 'Cache-Control': 'no-cache' } }).catch(() => ({ data: { data: [] } })),
-          http.get('/v1/resumes', { headers: { 'Cache-Control': 'no-cache' } }).catch(() => ({ data: { data: [] } })),
-          http.get('/v1/placements', { headers: { 'Cache-Control': 'no-cache' } }).catch(() => ({ data: { data: [] } })),
-          http.get('/v1/internships', { headers: { 'Cache-Control': 'no-cache' } }).catch((error) => {
-            if (error?.response?.status === 404) return { data: { data: [] } }
-            throw error
-          }),
-        ])
+        const sources = [
+          { key: 'discussion', path: '/v1/discussion', countKey: 'discussion' },
+          { key: 'faq', path: '/v1/faq', countKey: 'faq' },
+          { key: 'resumes', path: '/v1/resumes', countKey: 'resumes' },
+          { key: 'placements', path: '/v1/placements', countKey: 'placements' },
+          { key: 'internships', path: '/v1/internships', countKey: 'internships' },
+        ]
 
-        counts.discussion = Array.isArray(discussionRes.data?.data) ? discussionRes.data.data.length : 0
-        counts.faq = Array.isArray(faqRes.data?.data) ? faqRes.data.data.length : 0
-        counts.resumes = Array.isArray(resumesRes.data?.data) ? resumesRes.data.data.length : 0
-        counts.placements = Array.isArray(placementsRes.data?.data) ? placementsRes.data.data.length : 0
-        counts.internships = Array.isArray(internshipsRes.data?.data) ? internshipsRes.data.data.length : 0
+        await Promise.all(
+          sources.map(async (source) => {
+            try {
+              const response = await http.get(source.path, {
+                headers: { 'Cache-Control': 'no-cache' },
+              })
+              const records = Array.isArray(response.data?.data) ? response.data.data : []
+              const latestTimestamp = records.reduce(
+                (maxTimestamp, record) => Math.max(maxTimestamp, getRecordTimestamp(record)),
+                0,
+              )
+              const previousTimestamp = Number(previousState[source.key] || 0)
+
+              // Count items that are new (newer than last known timestamp)
+              if (previousTimestamp > 0 && latestTimestamp > previousTimestamp) {
+                const newCount = records.filter(
+                  (record) => getRecordTimestamp(record) > previousTimestamp,
+                ).length
+                newCounts[source.countKey] = newCount > 0 ? newCount : 0
+              } else {
+                newCounts[source.countKey] = 0
+              }
+            } catch (error) {
+              if (error?.response?.status !== 404) {
+                if (!silent) {
+                  // Silently fail
+                }
+              }
+              newCounts[source.countKey] = 0
+            }
+          }),
+        )
 
         if (isMounted) {
-          setItemCounts(counts)
+          setNewItemCounts(newCounts)
         }
       } catch (error) {
-        if (!silent) {
-          toast.error('Unable to load items count.')
-        }
+        // Silently fail
       }
     }
 
@@ -183,16 +206,16 @@ function Navbar() {
       toast.success(`${newNotifications.length} new update notification(s).`)
     }
 
-    void fetchItemCounts(true)
+    void fetchNewItemCounts(true)
     void pollNotifications(true)
 
     const intervalId = window.setInterval(() => {
-      void fetchItemCounts(true)
+      void fetchNewItemCounts(true)
       void pollNotifications(true)
     }, 12000)
 
     const handleFocus = () => {
-      void fetchItemCounts(true)
+      void fetchNewItemCounts(true)
       void pollNotifications(true)
     }
 
@@ -213,6 +236,11 @@ function Navbar() {
       }
       return next
     })
+  }
+
+  const handleNavLinkClick = (sectionKey) => {
+    // Clear new count badge when user visits the section
+    setNewItemCounts((prev) => ({ ...prev, [sectionKey]: 0 }))
   }
 
   const renderNavBadge = (count) => {
@@ -366,6 +394,7 @@ function Navbar() {
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             <NavLink
               to="/discussion"
+              onClick={() => handleNavLinkClick('discussion')}
               className={({ isActive }) =>
                 `whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${
                   isActive
@@ -375,10 +404,11 @@ function Navbar() {
               }
             >
               Discussion
-              {renderNavBadge(itemCounts.discussion)}
+              {renderNavBadge(newItemCounts.discussion)}
             </NavLink>
             <NavLink
               to="/faq"
+              onClick={() => handleNavLinkClick('faq')}
               className={({ isActive }) =>
                 `whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${
                   isActive
@@ -388,10 +418,11 @@ function Navbar() {
               }
             >
               FAQ
-              {renderNavBadge(itemCounts.faq)}
+              {renderNavBadge(newItemCounts.faq)}
             </NavLink>
             <NavLink
               to="/resumes"
+              onClick={() => handleNavLinkClick('resumes')}
               className={({ isActive }) =>
                 `whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${
                   isActive
@@ -401,10 +432,11 @@ function Navbar() {
               }
             >
               Resume Library
-              {renderNavBadge(itemCounts.resumes)}
+              {renderNavBadge(newItemCounts.resumes)}
             </NavLink>
             <NavLink
               to="/placements"
+              onClick={() => handleNavLinkClick('placements')}
               className={({ isActive }) =>
                 `whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${
                   isActive
@@ -414,10 +446,11 @@ function Navbar() {
               }
             >
               Placements
-              {renderNavBadge(itemCounts.placements)}
+              {renderNavBadge(newItemCounts.placements)}
             </NavLink>
             <NavLink
               to="/internships"
+              onClick={() => handleNavLinkClick('internships')}
               className={({ isActive }) =>
                 `whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${
                   isActive
@@ -427,7 +460,7 @@ function Navbar() {
               }
             >
               Internships
-              {renderNavBadge(itemCounts.internships)}
+              {renderNavBadge(newItemCounts.internships)}
             </NavLink>
             <NavLink
               to="/readiness"
