@@ -3,6 +3,7 @@ import AppLayout from './components/layout/AppLayout'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import DiscussionPage from './pages/DiscussionPage'
 import FaqPage from './pages/FaqPage'
+import HomePage from './pages/HomePage'
 import InternshipDashboardPage from './pages/InternshipDashboardPage'
 import LoginPage from './pages/LoginPage'
 import PlacementDashboardPage from './pages/PlacementDashboardPage'
@@ -18,7 +19,7 @@ const getDefaultRoute = () => {
     return '/login'
   }
 
-  return getRole() === 'admin' ? '/admin' : '/discussion'
+  return '/home'
 }
 
 function ProtectedRoute({ children, allowedRole }) {
@@ -46,6 +47,14 @@ function App() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/login"
           element={

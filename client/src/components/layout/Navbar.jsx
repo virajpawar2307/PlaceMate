@@ -409,6 +409,18 @@ function Navbar() {
           {isAuthenticated && role === 'student' && (
             <div className="mt-3 hidden gap-2 overflow-x-auto pb-1 lg:flex">
               <NavLink
+                to="/home"
+                className={({ isActive }) =>
+                  `whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${
+                    isActive
+                      ? 'border-cyan-600 bg-cyan-50 text-cyan-700'
+                      : 'border-slate-300 text-slate-700'
+                  }`
+                }
+              >
+                Home
+              </NavLink>
+              <NavLink
                 to="/discussion"
                 onClick={() => handleNavLinkClick('discussion')}
                 className={({ isActive }) =>
@@ -495,6 +507,18 @@ function Navbar() {
 
           {isAuthenticated && role === 'admin' && (
             <div className="mt-3 hidden gap-2 overflow-x-auto pb-1 lg:flex">
+              <NavLink
+                to="/home"
+                className={({ isActive }) =>
+                  `whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${
+                    isActive
+                      ? 'border-cyan-600 bg-cyan-50 text-cyan-700'
+                      : 'border-slate-300 text-slate-700'
+                  }`
+                }
+              >
+                Home
+              </NavLink>
               <NavLink
                 to="/admin"
                 className={({ isActive }) =>

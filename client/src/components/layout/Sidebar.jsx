@@ -61,6 +61,35 @@ function Sidebar({ isOpen, onClose, itemCounts = {} }) {
 
         {/* Navigation */}
         <nav className="space-y-2 px-4 py-6">
+          <NavLink
+            to="/home"
+            onClick={onClose}
+            className={({ isActive }) =>
+              `flex items-center rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                isActive
+                  ? 'bg-cyan-50 text-cyan-700'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`
+            }
+          >
+            <svg
+              className="mr-3 h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9m-9 16l4-4m0 0l4 4m-4-4v4m0-11l4 2m-4-2L9 7"
+              />
+            </svg>
+            Home
+          </NavLink>
+
+          <div className="my-2 border-t border-slate-200" />
+
           {role === 'student' && (
             <>
               <NavLink
